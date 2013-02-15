@@ -49,7 +49,13 @@ public:
 		l.tm_mon = 0;
 		l.tm_mday = 1;
 		l.tm_isdst = 0;
-		return mktime(&l)-getLocalEpoch();
+		time_t e = getLocalEpoch();
+		if(t < -e){
+			return toEpoch(&l)+e;
+		}else{
+			return toEpoch(&l)-e;
+		}
+		
 	}
 	
 	static time_t getLocalEpoch(){
@@ -61,7 +67,27 @@ public:
 		utc.tm_min = 0;
 		utc.tm_sec = 0;
 		utc.tm_isdst = 0;
-		return mktime(&utc);
+		return toEpoch(&utc);
+	}
+	
+	static time_t toEpoch(const struct tm *ltm, int utcdiff = -9){
+		const int mon_days [] =
+		{31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+		long tyears, tdays, leaps, utc_hrs;
+		int i;
+		
+		tyears = ltm->tm_year - 70 ; // tm->tm_year is from 1900.
+		leaps = (tyears + 2) / 4; // no of next two lines until year 2100.
+		//i = (ltm->tm_year – 100) / 100;
+		//leaps -= ( (i/4)*3 + i%4 );
+		tdays = 0;
+		for (i=0; i < ltm->tm_mon; i++) tdays += mon_days[i];
+		
+		tdays += ltm->tm_mday-1; // days of month passed.
+		tdays = tdays + (tyears * 365) + leaps;
+		
+		utc_hrs = ltm->tm_hour + utcdiff; // for your time zone.
+		return (tdays * 86400) + (utc_hrs * 3600) + (ltm->tm_min * 60) + ltm->tm_sec;
 	}
 	
 	ofxScheduleTime(int hour, int min, int sec, ofxScheduleTimeType newType=OFX_SCHEDULE_ABSOULTE){
@@ -74,6 +100,12 @@ public:
 	
 	ofxScheduleTime(tm newTime, ofxScheduleTimeType newType=OFX_SCHEDULE_ABSOULTE, bool local = true){
 		init(newTime, newType, local);
+	}
+	
+	ofxScheduleTime(float time, ofxScheduleTimeType newType=OFX_SCHEDULE_RELATIVE){
+		time_t uTime = normalizeTime(time);
+		tm newTime =* localtime(&uTime);
+		init(newTime, newType, true);
 	}
 	
 	ofxScheduleTimeType getType(){
@@ -95,14 +127,14 @@ public:
 	}
 	
 	float operator / (ofxScheduleTime& other){
-		time_t othert = mktime(&other.time);
+		time_t othert = toEpoch(&other.time);
 		if(othert == 0) return;
-		time_t unix = mktime(&time)/othert;
+		time_t unix = toEpoch(&time)/othert;
 		return unix;
 	}
 		
 	ofxScheduleTime operator * (float& factor){
-		time_t unix = mktime(&time)*factor;
+		time_t unix = toEpoch(&time)*factor;
 		ofxScheduleTime time;
 		time.setTime(unix);
 		return time;
@@ -129,7 +161,7 @@ public:
 	}
 	
 	time_t getUnixTime(){
-		return mktime(&time);
+		return toEpoch(&time);
 	}
 	
 private:
@@ -146,14 +178,14 @@ private:
 			utc.tm_min = 0;
 			utc.tm_sec = 0;
 			utc.tm_isdst = 0;
-			static const float utci = mktime(&utc);
+			static const time_t utci = toEpoch(&utc);
 			if(local) {
 				//if(time.tm_year < 70 || time.tm_year>1000)
 				time.tm_year = 70;
 				time.tm_mon = 0;
 				time.tm_mday =1;
 				time.tm_isdst =-1;
-				time_t normal = mktime(&time) - utci;
+				time_t normal = toEpoch(&time) - utci;
 				time = *localtime(&normal);
 			}
 		}
@@ -187,7 +219,7 @@ public:
 		return type = name;
 	}
 	string setMessage(string m){
-		return type = m;
+		return message = m;
 	}
 	ofxScheduleTime setBeginTime(ofxScheduleTime time){
 		return beginTime = time;
@@ -242,9 +274,12 @@ public:
 		startThread();
 	}
 	
-	void addSchedule(ofxScheduleEvent schedule){
-		events.push_back(&schedule);
-		liveEvents.push_back(&schedule);
+	void addSchedule(ofxScheduleEvent * schedule){
+		if(lock()){
+			events.push_back(schedule);
+			liveEvents.push_back(schedule);
+			unlock();
+		}
 	}
 	
 	void loadSchedule(string path){
@@ -254,14 +289,14 @@ public:
 		ofLogVerbose("ofxSchedule") << num << " events loaded";
 		for(int i=0; i<num; i++){
 			XML.pushTag("event",i);
-			ofxScheduleEvent event;
+			ofxScheduleEvent * event = new ofxScheduleEvent();
 			
-			event.setType(XML.getValue("type", "default type"));
-			event.setMessage(XML.getValue("message", "default message"));
+			event->setType(XML.getValue("type", "default type"));
+			event->setMessage(XML.getValue("message", "default message"));
 			
 			
 			XML.pushTag("begin");
-			event.setBeginTime(ofxScheduleTime(XML.getValue("time:hour", 0),
+			event->setBeginTime(ofxScheduleTime(XML.getValue("time:hour", 0),
 									XML.getValue("time:minute", 0),
 									XML.getValue("time:second", 0),
 									getScheduleTimeTypeFromString(XML.getAttribute("time", "type", "relative"))
@@ -269,7 +304,7 @@ public:
 			XML.popTag();
 			
 			XML.pushTag("duration");
-			event.setDuration(ofxScheduleTime(XML.getValue("time:hour", 0),
+			event->setDuration(ofxScheduleTime(XML.getValue("time:hour", 0),
 									XML.getValue("time:minute", 0),
 									XML.getValue("time:second", 0)
 									));
@@ -277,9 +312,9 @@ public:
 			
 			XML.pushTag("end");
 			if(XML.tagExists("loop")){
-				event.setLoop(XML.getValue("loop", 0.0f));
+				event->setLoop(XML.getValue("loop", 0.0f));
 			}else if(XML.tagExists("time")){
-				event.setEndTime(ofxScheduleTime(XML.getValue("time:hour", 0),
+				event->setEndTime(ofxScheduleTime(XML.getValue("time:hour", 0),
 												   XML.getValue("time:minute", 0),
 												   XML.getValue("time:second", 0),
 												   getScheduleTimeTypeFromString(XML.getAttribute("time", "type", "relative"))
@@ -291,6 +326,28 @@ public:
 			XML.popTag();
 		}
 		XML.popTag();
+	}
+	
+	int numEvents(){
+		return events.size();
+	}
+	
+	ofxScheduleEvent* getEvent(int i){
+		lock();
+		///ofxScheduleEvent event = ofxScheduleEvent(*events[i]);
+		unlock();
+		return events[i];
+	}
+	
+	int numLeftEvents(){
+		return liveEvents.size();
+	}
+	
+	ofxScheduleEvent getLeftEvent(int i=0){
+		lock();
+		ofxScheduleEvent event = *liveEvents[i];
+		unlock();
+		return event;
 	}
 	
 	ofEvent<ofxScheduleEvent> beginEvent;
