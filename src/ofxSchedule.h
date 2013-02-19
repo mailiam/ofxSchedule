@@ -16,7 +16,7 @@
  timeval t;
  gettimeofday(&t, NULL);
  cout << "	 "<< t.tv_usec<<endl;
-*/
+ */
 
 enum ofxScheduleTimeType {
 	OFX_SCHEDULE_ABSOULTE,
@@ -39,9 +39,6 @@ ofxScheduleTimeType getScheduleTimeTypeFromString(string type){
 
 class ofxScheduleTime {
 public:
-	ofxScheduleTime(){
-		init(tm());
-	}
 	
 	static time_t normalizeTime(time_t t){
 		tm l = *localtime(&t);
@@ -50,15 +47,24 @@ public:
 		l.tm_mday = 1;
 		l.tm_isdst = 0;
 		time_t e = getLocalEpoch();
-		if(t < -e){
-			return toEpoch(&l)+e;
+		
+		if(t<0){
+			if(t < -e){
+				return toEpoch(&l)-e;
+			}else{
+				return toEpoch(&l)+e;
+			}
 		}else{
-			return toEpoch(&l)-e;
+			if(t < -e){
+				return toEpoch(&l)+e;
+			}else{
+				return toEpoch(&l)-e;
+			}
 		}
 		
 	}
 	
-	static time_t getLocalEpoch(){
+	static tm getLocal(){
 		static tm utc;
 		utc.tm_year = 70;
 		utc.tm_mon = 0;
@@ -67,10 +73,15 @@ public:
 		utc.tm_min = 0;
 		utc.tm_sec = 0;
 		utc.tm_isdst = 0;
-		return toEpoch(&utc);
+		return utc;
 	}
 	
-	static time_t toEpoch(const struct tm *ltm, int utcdiff = -9){
+	static time_t getLocalEpoch(int utcdiff = 0){
+		static tm utc = getLocal();
+		return toEpoch(&utc,utcdiff);
+	}
+	
+	static time_t toEpoch(const struct tm *ltm, int utcdiff = 0){
 		const int mon_days [] =
 		{31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 		long tyears, tdays, leaps, utc_hrs;
@@ -95,17 +106,17 @@ public:
 		newTime.tm_hour = hour;
 		newTime.tm_min = min;
 		newTime.tm_sec = sec;
-		init(newTime, newType, true);
+		init(newTime, newType, false);
 	}
 	
 	ofxScheduleTime(tm newTime, ofxScheduleTimeType newType=OFX_SCHEDULE_ABSOULTE, bool local = true){
 		init(newTime, newType, local);
 	}
 	
-	ofxScheduleTime(float time, ofxScheduleTimeType newType=OFX_SCHEDULE_RELATIVE){
-		time_t uTime = normalizeTime(time);
+	ofxScheduleTime(float time=0, ofxScheduleTimeType newType=OFX_SCHEDULE_RELATIVE){
+		time_t uTime = time + getLocalEpoch(-9);
 		tm newTime =* localtime(&uTime);
-		init(newTime, newType, true);
+		init(newTime, newType, false);
 	}
 	
 	ofxScheduleTimeType getType(){
@@ -122,6 +133,16 @@ public:
 		return time.tm_sec;
 	}
 	
+	void setHour(int h){
+		time.tm_hour = h;
+	}
+	void setMinute(int m){
+		time.tm_min = m;
+	}
+	void setSec(int s){
+		time.tm_sec = s;
+	}
+	
 	int getMillis(){
 		return -1;
 	}
@@ -132,7 +153,7 @@ public:
 		time_t unix = toEpoch(&time)/othert;
 		return unix;
 	}
-		
+	
 	ofxScheduleTime operator * (float& factor){
 		time_t unix = toEpoch(&time)*factor;
 		ofxScheduleTime time;
@@ -167,9 +188,10 @@ public:
 private:
 	ofxScheduleTimeType type;
 	tm time;
-		void init(tm newTime, ofxScheduleTimeType newType = OFX_SCHEDULE_ABSOULTE, bool local = true){
-			time = newTime;
-			type = newType;
+	void init(tm newTime, ofxScheduleTimeType newType = OFX_SCHEDULE_ABSOULTE, bool local = true){
+		time = newTime;
+		type = newType;
+		if(local) {
 			static tm utc;
 			utc.tm_year = 70;
 			utc.tm_mon = 0;
@@ -179,16 +201,16 @@ private:
 			utc.tm_sec = 0;
 			utc.tm_isdst = 0;
 			static const time_t utci = toEpoch(&utc);
-			if(local) {
-				//if(time.tm_year < 70 || time.tm_year>1000)
-				time.tm_year = 70;
-				time.tm_mon = 0;
-				time.tm_mday =1;
-				time.tm_isdst =-1;
-				time_t normal = toEpoch(&time) - utci;
-				time = *localtime(&normal);
-			}
+			
+			//if(time.tm_year < 70 || time.tm_year>1000)
+			time.tm_year = 70;
+			time.tm_mon = 0;
+			time.tm_mday =1;
+			time.tm_isdst =-1;
+			time_t normal = toEpoch(&time) - utci;
+			time = *localtime(&normal);
 		}
+	}
 };
 
 class ofxScheduleEvent {
@@ -198,18 +220,18 @@ public:
 	
 	string getType(){
 		return type;
-	}	
+	}
 	string getMessage(){
 		return message;
 	}
-	ofxScheduleTime getBeginTime(){
-		return beginTime;
+	ofxScheduleTime *getBeginTime(){
+		return &beginTime;
 	}
-	ofxScheduleTime getDuration(){
-		return duration;
+	ofxScheduleTime *getDuration(){
+		return &duration;
 	}
-	ofxScheduleTime getEndTime(){
-		return duration;
+	ofxScheduleTime *getEndTime(){
+		return &duration;
 	}
 	float getLoop(){
 		return loop;
@@ -277,7 +299,19 @@ public:
 	void addSchedule(ofxScheduleEvent * schedule){
 		if(lock()){
 			events.push_back(schedule);
-			liveEvents.push_back(schedule);
+			unlock();
+		}
+	}
+	
+	void removeSchedule(ofxScheduleEvent * schedule){
+		if(lock()){
+			for(int i=0; i<events.size(); i++){
+				if (events[i] == schedule){
+					events.erase(events.begin()+i);
+					break;
+				}
+			}
+			delete schedule;
 			unlock();
 		}
 	}
@@ -297,17 +331,17 @@ public:
 			
 			XML.pushTag("begin");
 			event->setBeginTime(ofxScheduleTime(XML.getValue("time:hour", 0),
-									XML.getValue("time:minute", 0),
-									XML.getValue("time:second", 0),
-									getScheduleTimeTypeFromString(XML.getAttribute("time", "type", "relative"))
-									));
+												XML.getValue("time:minute", 0),
+												XML.getValue("time:second", 0),
+												getScheduleTimeTypeFromString(XML.getAttribute("time", "type", "relative"))
+												));
 			XML.popTag();
 			
 			XML.pushTag("duration");
 			event->setDuration(ofxScheduleTime(XML.getValue("time:hour", 0),
-									XML.getValue("time:minute", 0),
-									XML.getValue("time:second", 0)
-									));
+											   XML.getValue("time:minute", 0),
+											   XML.getValue("time:second", 0)
+											   ));
 			XML.popTag();
 			
 			XML.pushTag("end");
@@ -315,10 +349,10 @@ public:
 				event->setLoop(XML.getValue("loop", 0.0f));
 			}else if(XML.tagExists("time")){
 				event->setEndTime(ofxScheduleTime(XML.getValue("time:hour", 0),
-												   XML.getValue("time:minute", 0),
-												   XML.getValue("time:second", 0),
-												   getScheduleTimeTypeFromString(XML.getAttribute("time", "type", "relative"))
-												   ));
+												  XML.getValue("time:minute", 0),
+												  XML.getValue("time:second", 0),
+												  getScheduleTimeTypeFromString(XML.getAttribute("time", "type", "relative"))
+												  ));
 			}
 			XML.popTag();
 			
@@ -339,42 +373,40 @@ public:
 		return events[i];
 	}
 	
-	int numLeftEvents(){
-		return liveEvents.size();
-	}
-	
-	ofxScheduleEvent getLeftEvent(int i=0){
-		lock();
-		ofxScheduleEvent event = *liveEvents[i];
-		unlock();
-		return event;
-	}
-	
 	ofEvent<ofxScheduleEvent> beginEvent;
 	ofEvent<ofxScheduleEvent> endEvent;
 private:
 	void threadedFunction(){
 		while(isThreadRunning()){
-			if(liveEvents.size()>0){
-				time_t now =ofxScheduleTime::normalizeTime(time(NULL));
-				time_t begin = previousTime + liveEvents.front()->getBeginTime().getUnixTime();
-				time_t end = begin + liveEvents.front()->getDuration().getUnixTime();
+			time_t now =ofxScheduleTime::normalizeTime(time(NULL));
+			time_t begin = 0;//previousTime + liveEvents.front()->getBeginTime()->getUnixTime();
+			time_t end = 0;//begin + liveEvents.front()->getDuration()->getUnixTime();
+			
+			for(int i=0; i<events.size(); i++){
+				ofxScheduleEvent *e = events[i];
+				begin += e->getBeginTime()->getUnixTime();
+				end = begin+e->getDuration()->getUnixTime();
+				
 				if(now >= begin){
-					if(!liveEvents.front()->getIsOn()){
-						ofNotifyEvent(beginEvent, *liveEvents.front(), this);
-						liveEvents.front()->setIsOn(true);
- 					}
-					if(now >= end){
-						ofNotifyEvent(endEvent, *liveEvents.front(), this);
+					if(!e->getIsOn() && now <= end){
+						ofNotifyEvent(beginEvent, *e, this);
+						e->setIsOn(true);
+						ofLogVerbose("ofxSchedule")<< ofGetTimestampString() <<":BEGINNING	" << e->getType() << " < " << e->getMessage();
+
+					}
+					if(now >= end && e->getIsOn()){
+						ofNotifyEvent(endEvent, *e, this);
 						previousTime = end;
-						liveEvents.pop_front();
+						e->setIsOn(false);
+						ofLogVerbose("ofxSchedule")<< ofGetTimestampString() <<":ENDING	" << e->getType() << " < " << e->getMessage();
 					}
 				}
+				begin = end;
+				
 			}
 		}
 	}
 	time_t previousTime;
-	deque<ofxScheduleEvent*> liveEvents; //vector<ofxScheduleEvent*> liveEvents;
 	vector<ofxScheduleEvent*> events;
 	ofxXmlSettings XML;
 };
