@@ -324,6 +324,11 @@ public:
 					break;
 				}
 			}
+			if (schedule->getIsOn()) {
+				ofLogVerbose("ofxSchedule")<< ofGetTimestampString() <<":ENDING	" << schedule->getType() << " < " << schedule->getMessage();
+				ofNotifyEvent(endEvent, *schedule, this);
+				schedule->setIsOn(false);
+			}
 			delete schedule;
 			unlock();
 		}
@@ -402,24 +407,21 @@ private:
 				if(now >= begin){
 					if(!e->getIsOn() && now < end){
 						ofLogVerbose("ofxSchedule")<< ofGetTimestampString() <<":BEGINNING	" << e->getType() << " < " << e->getMessage();
-						cout << begin << " : " <<now  <<" : " << end << endl;
 
 						ofNotifyEvent(beginEvent, *e, this);
 						e->setIsOn(true);
 					}else if(now >= end && e->getIsOn()){
 						ofLogVerbose("ofxSchedule")<< ofGetTimestampString() <<":ENDING	" << e->getType() << " < " << e->getMessage();
-						cout << begin << " : " <<now  <<" : " << end << endl;
 						ofNotifyEvent(endEvent, *e, this);
 						e->setIsOn(false);
 					}
 				}else if(e->getIsOn()){
-					ofLogVerbose("ofxSchedule")<< ofGetTimestampString() <<":AAA	" << e->getType() << " < " << e->getMessage();
-					cout << begin << " : " <<now  <<" : " << end << endl;
+					ofLogVerbose("ofxSchedule")<< ofGetTimestampString() <<":ENDING	" << e->getType() << " < " << e->getMessage();
 					ofNotifyEvent(endEvent, *e, this);
 					e->setIsOn(false);
 				}
 				begin = end;
-				
+				ofSleepMillis(1);
 			}
 		}
 	}
