@@ -330,8 +330,8 @@ public:
 			float y = yy + event->getBeginTime()->getUnixTime()*secHeight;
 			widget = new ofxUIMediaAsset(event->getMessage(),listUI->getRect()->width-TIME_LABEL_WIDTH, h, TIME_LABEL_WIDTH, y);
             listUI->addWidget(widget);
-			cout << hash((unsigned const char*)event->getMessage().c_str()) <<endl;
-			widget->setColorBack(ofColor::fromHsb((y/listUI->getSRect()->height)*255, 255, 255, 128));
+			unsigned long hashcode = hash((unsigned const char*)event->getMessage().c_str());
+			widget->setColorBack(ofColor::fromHsb(hashcode%255, 255, 255, 128));
 			
 			yy+=widget->getRect()->height;
 			
@@ -448,6 +448,18 @@ public:
 	
 	ofxUIMediaAsset * getSelected(){
 		return selectedAsset;
+	}
+	
+	void focusSelected(){
+		float y = selectedAsset->getRect()->y;
+		float time = y/secHeight;
+		float h = time/3600;
+		float diff = scrollbar->getScaledValueLow()-scrollbar->getScaledValueHigh();
+		h = max(h-diff/2,0.f);
+		h = h-max(h+diff-24,0.f);
+		scrollbar->setValueHigh(h);
+		scrollbar->setValueLow(h+diff);
+		refreshView();
 	}
 	
 	bool isDraggable()
