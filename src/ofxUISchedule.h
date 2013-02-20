@@ -20,6 +20,17 @@
 class ofxUISchedule : public ofxUICanvas
 {
 public:
+	unsigned long hash(const unsigned char *str)
+    {
+        unsigned long hash = 5381;
+        int c;
+		
+        while ((c = *str++))
+            hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+		
+        return hash;
+    }
+	
     ofxUISchedule() : ofxUICanvas()
     {
         
@@ -77,9 +88,7 @@ public:
 		
 		scrollbar->setValueHigh(0);
 		scrollbar->setValueLow(24);
-		
-		updateSchedule();
-		
+				
 		panel = new ofxUICanvas();
 		panel ->addLabel("LABEL BEGIN", "BEGIN");
 		ofxUINumberDialer *d;
@@ -96,7 +105,7 @@ public:
 		d->setSign(':');
 		d = (ofxUINumberDialer *) panel ->addWidgetRight(new ofxUINumberDialer(-1.f, 60.f, 0.f, 0, "DURATION SECOND", OFX_UI_FONT_SMALL));
 		d->setSign(':');
-		panel ->addLabel("LABEL END", "END");
+		/*panel ->addLabel("LABEL END", "END");
 		d = (ofxUINumberDialer *) panel ->addWidgetDown(new ofxUINumberDialer(0.f, 23.f, 0.f, 0, "END HOUR", OFX_UI_FONT_SMALL));
 		d->setSign(' ');
 		d = (ofxUINumberDialer *) panel ->addWidgetRight(new ofxUINumberDialer(-1.f, 60.f, 0.f, 0, "END MINUTE", OFX_UI_FONT_SMALL));
@@ -105,7 +114,7 @@ public:
 		d->setSign(':');
 		panel ->addLabel("LABEL LOOP", "LOOP");
 		d = (ofxUINumberDialer *) panel ->addWidgetDown(new ofxUINumberDialer(0.f, 100, 0.f, 2, "LOOP", OFX_UI_FONT_SMALL));
-		d->setSign(' ');
+		d->setSign(' ');*/
 		panel->addButton("DEL", false);
 		panel->setDrawBack(true);
 		panel->setColorBack(ofColor(32,32,32,192));
@@ -113,7 +122,8 @@ public:
 		panel->disable();
 		panel->autoSizeToFitWidgets();
 		
-				
+		updateSchedule();	
+		
 		ofAddListener(newGUIEvent, this, &ofxUISchedule::guiEvent);
 		ofAddListener(listUI->newGUIEvent, this, &ofxUISchedule::guiEvent);
 		ofAddListener(panel->newGUIEvent, this, &ofxUISchedule::panelEvent);
@@ -166,6 +176,8 @@ public:
 	
 	void panelEvent(ofxUIEventArgs &e)
 	{
+		bool running = schedule->isRunning();
+		if(running)schedule->stop();
 		if(e.widget->getName() == "BEGIN HOUR"){
 			ofxUINumberDialer * d = (ofxUINumberDialer*) e.widget;
 			selectedEvent->getBeginTime()->setHour((int)d->getValue());
@@ -181,9 +193,9 @@ public:
 				panelEvent(e);
 			}else if(i==-1){
 				ofxUINumberDialer * p = (ofxUINumberDialer*) panel->getWidget("BEGIN HOUR");
-				p->setValue(p->getValue()-1);
 				if(p->getValue() != 0)d->setValue(59);
 				else d->setValue(0);
+				p->setValue(p->getValue()-1);
 				ofxUIEventArgs e = ofxUIEventArgs(p);
 				panelEvent(e);
 			}
@@ -200,9 +212,9 @@ public:
 				panelEvent(e);
 			}else if(i==-1){
 				ofxUINumberDialer * p = (ofxUINumberDialer*) panel->getWidget("BEGIN MINUTE");
-				p->setValue(p->getValue()-1);
 				if(p->getValue() != 0)d->setValue(59);
 				else d->setValue(0);
+				p->setValue(p->getValue()-1);
 				ofxUIEventArgs e = ofxUIEventArgs(p);
 				panelEvent(e);
 			}
@@ -223,9 +235,9 @@ public:
 				panelEvent(e);
 			}else if(i==-1){
 				ofxUINumberDialer * p = (ofxUINumberDialer*) panel->getWidget("DURATION HOUR");
-				p->setValue(p->getValue()-1);
 				if(p->getValue() != 0)d->setValue(59);
 				else d->setValue(0);
+				p->setValue(p->getValue()-1);
 				ofxUIEventArgs e = ofxUIEventArgs(p);
 				panelEvent(e);
 			}
@@ -242,16 +254,15 @@ public:
 				panelEvent(e);
 			}else if(i==-1){
 				ofxUINumberDialer * p = (ofxUINumberDialer*) panel->getWidget("DURATION MINUTE");
-				p->setValue(p->getValue()-1);
 				if(p->getValue() != 0)d->setValue(59);
 				else d->setValue(0);
+				p->setValue(p->getValue()-1);
 				ofxUIEventArgs e = ofxUIEventArgs(p);
 				panelEvent(e);
 			}
 			selectedEvent->getDuration()->setSec((int)d->getValue());
 			refreshView();
 		}
-		
 		
 		
 		else if(e.widget->getName() == "DEL"){
@@ -263,8 +274,7 @@ public:
 				hidePanel();
 			}
 		}
-
-			
+		if(!running)schedule->start();
 	}
 	
 	void showPanelAt(ofxUIWidget * widget){
@@ -293,7 +303,7 @@ public:
 		d->setValue(selectedEvent->getDuration()->getMinute());
 		d = (ofxUINumberDialer *) panel->getWidget("DURATION SECOND");
 		d->setValue(selectedEvent->getDuration()->getSec());
-		
+		/*
 		d = (ofxUINumberDialer *) panel->getWidget("END HOUR");
 		d->setValue(selectedEvent->getEndTime()->getHour());
 		d = (ofxUINumberDialer *) panel->getWidget("END MINUTE");
@@ -303,6 +313,7 @@ public:
 		
 		d = (ofxUINumberDialer *) panel->getWidget("LOOP");
 		d->setValue(selectedEvent->getLoop());
+		 */
 	}
 	
 	void hidePanel(){
@@ -319,6 +330,7 @@ public:
 			float y = yy + event->getBeginTime()->getUnixTime()*secHeight;
 			widget = new ofxUIMediaAsset(event->getMessage(),listUI->getRect()->width-TIME_LABEL_WIDTH, h, TIME_LABEL_WIDTH, y);
             listUI->addWidget(widget);
+			cout << hash((unsigned const char*)event->getMessage().c_str()) <<endl;
 			widget->setColorBack(ofColor::fromHsb((y/listUI->getSRect()->height)*255, 255, 255, 128));
 			
 			yy+=widget->getRect()->height;

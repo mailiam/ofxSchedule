@@ -103,10 +103,10 @@ public:
 	
 	ofxScheduleTime(int hour, int min, int sec, ofxScheduleTimeType newType=OFX_SCHEDULE_ABSOULTE){
 		tm newTime;
-		newTime.tm_hour = hour;
+		newTime.tm_hour = hour - 9;
 		newTime.tm_min = min;
 		newTime.tm_sec = sec;
-		init(newTime, newType, false);
+		init(newTime, newType, true);
 	}
 	
 	ofxScheduleTime(tm newTime, ofxScheduleTimeType newType=OFX_SCHEDULE_ABSOULTE, bool local = true){
@@ -289,11 +289,24 @@ private:
 
 class ofxSchedule : ofThread{
 public:
-	ofxSchedule():previousTime(0){
+	ofxSchedule(){
 	}
 	
 	void start(){
 		startThread();
+	}
+	
+	void stop(){
+		stopThread();
+	}
+	
+	bool isRunning(){
+		return isThreadRunning();
+	}
+	
+	void setPlay(bool play){
+		if(play) start();
+		else stop();
 	}
 	
 	void addSchedule(ofxScheduleEvent * schedule){
@@ -386,27 +399,30 @@ private:
 				ofxScheduleEvent *e = events[i];
 				begin += e->getBeginTime()->getUnixTime();
 				end = begin+e->getDuration()->getUnixTime();
-				
 				if(now >= begin){
-					if(!e->getIsOn() && now <= end){
+					if(!e->getIsOn() && now < end){
+						ofLogVerbose("ofxSchedule")<< ofGetTimestampString() <<":BEGINNING	" << e->getType() << " < " << e->getMessage();
+						cout << begin << " : " <<now  <<" : " << end << endl;
+
 						ofNotifyEvent(beginEvent, *e, this);
 						e->setIsOn(true);
-						ofLogVerbose("ofxSchedule")<< ofGetTimestampString() <<":BEGINNING	" << e->getType() << " < " << e->getMessage();
-
-					}
-					if(now >= end && e->getIsOn()){
-						ofNotifyEvent(endEvent, *e, this);
-						previousTime = end;
-						e->setIsOn(false);
+					}else if(now >= end && e->getIsOn()){
 						ofLogVerbose("ofxSchedule")<< ofGetTimestampString() <<":ENDING	" << e->getType() << " < " << e->getMessage();
+						cout << begin << " : " <<now  <<" : " << end << endl;
+						ofNotifyEvent(endEvent, *e, this);
+						e->setIsOn(false);
 					}
+				}else if(e->getIsOn()){
+					ofLogVerbose("ofxSchedule")<< ofGetTimestampString() <<":AAA	" << e->getType() << " < " << e->getMessage();
+					cout << begin << " : " <<now  <<" : " << end << endl;
+					ofNotifyEvent(endEvent, *e, this);
+					e->setIsOn(false);
 				}
 				begin = end;
 				
 			}
 		}
 	}
-	time_t previousTime;
 	vector<ofxScheduleEvent*> events;
 	ofxXmlSettings XML;
 };
