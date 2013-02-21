@@ -177,7 +177,7 @@ public:
 	void panelEvent(ofxUIEventArgs &e)
 	{
 		bool running = schedule->isRunning();
-		if(running)schedule->stop();
+		//schedule->stop();
 		if(e.widget->getName() == "BEGIN HOUR"){
 			ofxUINumberDialer * d = (ofxUINumberDialer*) e.widget;
 			selectedEvent->getBeginTime()->setHour((int)d->getValue());
@@ -268,13 +268,13 @@ public:
 		else if(e.widget->getName() == "DEL"){
 			ofxUIButton *b = (ofxUIButton*)e.widget;
 			if(b->getValue()){
-				schedule->removeSchedule(selectedEvent);
-				updateSchedule();
-				selectedEvent = NULL;
 				hidePanel();
+				schedule->removeSchedule(selectedEvent);
+				selectedEvent = NULL;
+				updateSchedule();
 			}
 		}
-		if(!running)schedule->start();
+		//schedule->start();
 	}
 	
 	void showPanelAt(ofxUIWidget * widget){
