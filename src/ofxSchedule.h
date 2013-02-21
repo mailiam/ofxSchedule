@@ -25,20 +25,21 @@ enum ofxScheduleTimeType {
 	OFX_SCHEDULE_EVERY
 };
 
-ofxScheduleTimeType getScheduleTimeTypeFromString(string type){
-	if(type == "absolute"){
-		return OFX_SCHEDULE_ABSOULTE;
-	}else if(type == "relative"){
-		return OFX_SCHEDULE_RELATIVE;
-	}else if(type == "repeat"){
-		return OFX_SCHEDULE_REPEAT;
-	}else if(type == "every"){
-		return OFX_SCHEDULE_EVERY;
-	}
-}
 
 class ofxScheduleTime {
 public:
+	
+	static ofxScheduleTimeType getScheduleTimeTypeFromString(string type){
+		if(type == "absolute"){
+			return OFX_SCHEDULE_ABSOULTE;
+		}else if(type == "relative"){
+			return OFX_SCHEDULE_RELATIVE;
+		}else if(type == "repeat"){
+			return OFX_SCHEDULE_REPEAT;
+		}else if(type == "every"){
+			return OFX_SCHEDULE_EVERY;
+		}
+	}
 	
 	static time_t normalizeTime(time_t t){
 		tm l = *localtime(&t);
@@ -351,7 +352,7 @@ public:
 			event->setBeginTime(ofxScheduleTime(XML.getValue("time:hour", 0),
 												XML.getValue("time:minute", 0),
 												XML.getValue("time:second", 0),
-												getScheduleTimeTypeFromString(XML.getAttribute("time", "type", "relative"))
+												ofxScheduleTime::getScheduleTimeTypeFromString(XML.getAttribute("time", "type", "relative"))
 												));
 			XML.popTag();
 			
@@ -369,7 +370,7 @@ public:
 				event->setEndTime(ofxScheduleTime(XML.getValue("time:hour", 0),
 												  XML.getValue("time:minute", 0),
 												  XML.getValue("time:second", 0),
-												  getScheduleTimeTypeFromString(XML.getAttribute("time", "type", "relative"))
+												  ofxScheduleTime::getScheduleTimeTypeFromString(XML.getAttribute("time", "type", "relative"))
 												  ));
 			}
 			XML.popTag();
