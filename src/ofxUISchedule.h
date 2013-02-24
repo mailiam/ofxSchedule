@@ -295,14 +295,14 @@ public:
 		d = (ofxUINumberDialer *) panel->getWidget("BEGIN MINUTE");
 		d->setValue(selectedEvent->getBeginTime()->getMinute());
 		d = (ofxUINumberDialer *) panel->getWidget("BEGIN SECOND");
-		d->setValue(selectedEvent->getBeginTime()->getSec());
+		d->setValue(selectedEvent->getBeginTime()->getSecond());
 		
 		d = (ofxUINumberDialer *) panel->getWidget("DURATION HOUR");
 		d->setValue(selectedEvent->getDuration()->getHour());
 		d = (ofxUINumberDialer *) panel->getWidget("DURATION MINUTE");
 		d->setValue(selectedEvent->getDuration()->getMinute());
 		d = (ofxUINumberDialer *) panel->getWidget("DURATION SECOND");
-		d->setValue(selectedEvent->getDuration()->getSec());
+		d->setValue(selectedEvent->getDuration()->getSecond());
 		/*
 		d = (ofxUINumberDialer *) panel->getWidget("END HOUR");
 		d->setValue(selectedEvent->getEndTime()->getHour());

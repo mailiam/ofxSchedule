@@ -29,7 +29,7 @@ enum ofxScheduleTimeType {
 class ofxScheduleTime {
 public:
 	
-	static ofxScheduleTimeType getScheduleTimeTypeFromString(string type){
+	static ofxScheduleTimeType getScheduleTimeType(string type){
 		if(type == "absolute"){
 			return OFX_SCHEDULE_ABSOULTE;
 		}else if(type == "relative"){
@@ -38,6 +38,18 @@ public:
 			return OFX_SCHEDULE_REPEAT;
 		}else if(type == "every"){
 			return OFX_SCHEDULE_EVERY;
+		}
+	}
+	
+	static string getScheduleTimeTypeString(ofxScheduleTimeType type){
+		if(type == OFX_SCHEDULE_ABSOULTE){
+			return "absolute";
+		}else if(type == OFX_SCHEDULE_RELATIVE){
+			return "relative";
+		}else if(type == OFX_SCHEDULE_REPEAT){
+			return "repeat";
+		}else if(type == OFX_SCHEDULE_EVERY){
+			return "every";
 		}
 	}
 	
@@ -130,7 +142,7 @@ public:
 	int getMinute(){
 		return time.tm_min;
 	}
-	int getSec(){
+	int getSecond(){
 		return time.tm_sec;
 	}
 	
@@ -317,6 +329,16 @@ public:
 		}
 	}
 	
+	void clear(){
+		if(lock()){
+			for(int i=0; i<events.size(); i++){
+				delete events[i];
+			}
+			events.clear();
+			unlock();
+		}
+	}
+	
 	void removeSchedule(ofxScheduleEvent * schedule){
 		if(lock()){
 			for(int i=0; i<events.size(); i++){
@@ -335,7 +357,57 @@ public:
 		}
 	}
 	
+	void saveScehdule(string path){
+		XML.clear();
+		int num = XML.addTag("schedule");
+		XML.addAttribute("schedule", "generator", "openframeworks/ofxSchedule", num);
+		XML.pushTag("schedule");
+		for(int i=0; i<events.size();i++){
+			ofxScheduleEvent * event = events[i];
+			ofxScheduleTime * time;
+			num = XML.addTag("event");
+			XML.pushTag("event", num);
+			
+			XML.addValue("type", event->getType());
+			XML.addValue("message", event->getMessage());
+			
+			XML.addTag("begin");
+			XML.pushTag("begin");{
+				num = XML.addTag("time");
+				time = event->getBeginTime();
+				XML.addAttribute("time", "type", ofxScheduleTime::getScheduleTimeTypeString(time->getType()), num);
+				XML.pushTag("time");{
+					XML.addValue("hour", time->getHour());
+					XML.addValue("minute", time->getMinute());
+					XML.addValue("second", time->getSecond());
+				}XML.popTag();
+			}XML.popTag();
+			
+			XML.addTag("duration");
+			XML.pushTag("duration");{
+				num = XML.addTag("time");
+				time = event->getDuration();
+				XML.pushTag("time");{
+					XML.addValue("hour", time->getHour());
+					XML.addValue("minute", time->getMinute());
+					XML.addValue("second", time->getSecond());
+				}XML.popTag();
+			}XML.popTag();
+			
+			XML.addTag("end");
+			XML.pushTag("end");{
+				XML.addValue("loop", event->getLoop());
+			}XML.popTag();
+			
+			XML.popTag();
+		}
+		XML.popTag();
+		XML.saveFile(path);
+		
+	}
+	
 	void loadSchedule(string path){
+		clear();
 		XML.loadFile(path);
 		XML.pushTag("schedule");
 		int num = XML.getNumTags("event");
@@ -352,7 +424,7 @@ public:
 			event->setBeginTime(ofxScheduleTime(XML.getValue("time:hour", 0),
 												XML.getValue("time:minute", 0),
 												XML.getValue("time:second", 0),
-												ofxScheduleTime::getScheduleTimeTypeFromString(XML.getAttribute("time", "type", "relative"))
+												ofxScheduleTime::getScheduleTimeType(XML.getAttribute("time", "type", "relative"))
 												));
 			XML.popTag();
 			
@@ -370,7 +442,7 @@ public:
 				event->setEndTime(ofxScheduleTime(XML.getValue("time:hour", 0),
 												  XML.getValue("time:minute", 0),
 												  XML.getValue("time:second", 0),
-												  ofxScheduleTime::getScheduleTimeTypeFromString(XML.getAttribute("time", "type", "relative"))
+												  ofxScheduleTime::getScheduleTimeType(XML.getAttribute("time", "type", "relative"))
 												  ));
 			}
 			XML.popTag();
