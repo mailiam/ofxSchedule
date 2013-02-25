@@ -494,8 +494,8 @@ private:
 					e->setIsOn(false);
 				}
 				begin = end;
-				ofSleepMillis(1);
 			}
+			ofSleepMillis(1);
 		}
 	}
 	vector<ofxScheduleEvent*> events;
