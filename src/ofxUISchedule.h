@@ -90,16 +90,18 @@ public:
 		scrollbar->setValueLow(24);
 				
 		panel = new ofxUICanvas();
+		panel ->addLabel("TITLE", "");
+		panel ->addSpacer();
 		panel ->addLabel("LABEL BEGIN", "BEGIN");
 		ofxUINumberDialer *d;
-		d = (ofxUINumberDialer *) panel ->addWidgetDown(new ofxUINumberDialer(0.f, 23.f, 0.f, 0, "BEGIN HOUR", OFX_UI_FONT_SMALL));
+		d = (ofxUINumberDialer *) panel ->addWidgetRight(new ofxUINumberDialer(0.f, 23.f, 0.f, 0, "BEGIN HOUR", OFX_UI_FONT_SMALL));
 		d->setSign(' ');
 		d = (ofxUINumberDialer *) panel ->addWidgetRight(new ofxUINumberDialer(-1.f, 60.f, 0.f, 0, "BEGIN MINUTE", OFX_UI_FONT_SMALL));
 		d->setSign(':');
 		d = (ofxUINumberDialer *) panel ->addWidgetRight(new ofxUINumberDialer(-1.f, 60.f, 0.f, 0, "BEGIN SECOND", OFX_UI_FONT_SMALL));
 		d->setSign(':');
 		panel ->addLabel("LABEL DURATION", "DURATION");
-		d = (ofxUINumberDialer *) panel ->addWidgetDown(new ofxUINumberDialer(0.f, 23.f, 0.f, 0, "DURATION HOUR", OFX_UI_FONT_SMALL));
+		d = (ofxUINumberDialer *) panel ->addWidgetRight(new ofxUINumberDialer(0.f, 23.f, 0.f, 0, "DURATION HOUR", OFX_UI_FONT_SMALL));
 		d->setSign(' ');
 		d = (ofxUINumberDialer *) panel ->addWidgetRight(new ofxUINumberDialer(-1.f, 60.f, 0.f, 0, "DURATION MINUTE", OFX_UI_FONT_SMALL));
 		d->setSign(':');
@@ -289,6 +291,9 @@ public:
 	
 	void showPanel(){
 		panel->enable();
+		
+		ofxUILabel *l = (ofxUILabel*) panel->getWidget("TITLE");
+		l->setLabel(selectedAsset->getName());
 		ofxUINumberDialer *d;
 		d = (ofxUINumberDialer *) panel->getWidget("BEGIN HOUR");
 		d->setValue(selectedEvent->getBeginTime()->getHour());
@@ -320,7 +325,7 @@ public:
 		panel->disable();
 	}
 	
-	void updateSchedule(){
+	void updateSchedule(bool select=true){
 		listUI->removeWidgets();
 		float yy =0;
 		ofxUIMediaAsset * widget = NULL;
@@ -337,7 +342,8 @@ public:
 			
         }
 		if(widget != NULL) {
-			widget->setValue(true);
+			if(select)widget->setValue(true);
+			else widget->setValue(false);
 			ofxUIEventArgs e = ofxUIEventArgs(widget);
 			guiEvent(e);
 		}
@@ -445,6 +451,16 @@ public:
             //rect->draw();
         }
     }
+	
+	void mousePressed(int x, int y, int button){
+		ofxUICanvas::mousePressed(x,y,button);
+	}
+	
+	void mouseReleased(int x, int y, int button){
+		ofxUICanvas::mouseReleased(x,y,button);
+		if(!schedule->validate())
+			updateSchedule(false);
+	}
 	
 	ofxUIMediaAsset * getSelected(){
 		return selectedAsset;

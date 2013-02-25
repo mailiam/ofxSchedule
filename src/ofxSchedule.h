@@ -358,6 +358,7 @@ public:
 	}
 	
 	void saveScehdule(string path){
+		validate();
 		XML.clear();
 		int num = XML.addTag("schedule");
 		XML.addAttribute("schedule", "generator", "openframeworks/ofxSchedule", num);
@@ -451,6 +452,74 @@ public:
 			XML.popTag();
 		}
 		XML.popTag();
+		validate();
+	}
+	
+	bool validate(){
+		bool success = true;
+		
+		//Remove duration = 0;
+		for(int i=0; i<events.size(); i++){
+			ofxScheduleEvent *e = events[i];
+			if(e->getDuration()->getUnixTime() == 0){
+				ofLogVerbose("ofxSchedule") << "NO DURATION:REMOVING " << e->getType() << " < " << e->getMessage();
+				removeSchedule(e);
+				success = false;
+			}
+		}
+		
+		time_t now =ofxScheduleTime::normalizeTime(time(NULL));
+		time_t begin = 0;//previousTime + liveEvents.front()->getBeginTime()->getUnixTime();
+		time_t end = 0;//begin + liveEvents.front()->getDuration()->getUnixTime();
+		
+		ofxScheduleEvent * event = NULL;
+		ofxScheduleEvent *e;
+		//end all
+		for (int i=0; i<events.size(); i++){
+			e = events[i];
+			begin += e->getBeginTime()->getUnixTime();
+			end = begin+e->getDuration()->getUnixTime();
+			if(begin<= now && now <= end){
+				event = e;
+				e->setIsOn(true);
+			}else{
+				e->setIsOn(false);
+			}
+			begin = end;
+		}
+		
+		if(event){
+			ofLogVerbose("ofxSchedule")<< "VALIDATION" <<":BEGINNING	" << event->getType() << " < " << event->getMessage();
+			ofNotifyEvent(beginEvent, *event, this);
+		}else{
+			ofLogVerbose("ofxSchedule")<< "VALIDATION" <<":ENDING	" << e->getType() << " < " << e->getMessage();
+			ofNotifyEvent(endEvent, *e, this);
+		}
+		//update
+		
+		/*
+		begin = 0;
+		for(int i=0; i<events.size(); i++){
+			ofxScheduleEvent *e = events[i];
+			begin += e->getBeginTime()->getUnixTime();
+			end = begin+e->getDuration()->getUnixTime();
+			if(now >= begin){
+				if(now < end){
+					ofLogVerbose("ofxSchedule")<< ofGetTimestampString() <<":BEGINNING	" << e->getType() << " < " << e->getMessage();
+					
+					ofNotifyEvent(beginEvent, *e, this);
+					e->setIsOn(true);
+				}else if(now >= end){
+					ofLogVerbose("ofxSchedule")<< ofGetTimestampString() <<":ENDING	" << e->getType() << " < " << e->getMessage();
+					ofNotifyEvent(endEvent, *e, this);
+					e->setIsOn(false);
+				}
+			}
+		 
+			begin = end;
+		}
+		 */
+		return success;
 	}
 	
 	int numEvents(){
@@ -483,7 +552,7 @@ private:
 
 						ofNotifyEvent(beginEvent, *e, this);
 						e->setIsOn(true);
-					}else if(now >= end && e->getIsOn()){
+					}else if(now > end && e->getIsOn()){
 						ofLogVerbose("ofxSchedule")<< ofGetTimestampString() <<":ENDING	" << e->getType() << " < " << e->getMessage();
 						ofNotifyEvent(endEvent, *e, this);
 						e->setIsOn(false);
