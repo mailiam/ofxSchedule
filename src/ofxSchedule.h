@@ -10,6 +10,8 @@
 #define LEDManager_ofxSchedule_h
 
 #include <sys/time.h>
+#include "Poco/LocalDateTime.h"
+#include "Poco/Timestamp.h"
 #include "ofxXmlSettings.h"
 
 /* millis
@@ -25,7 +27,7 @@ enum ofxScheduleTimeType {
 	OFX_SCHEDULE_EVERY
 };
 
-
+/*
 class ofxScheduleTime {
 public:
 	
@@ -226,6 +228,100 @@ private:
 	}
 };
 
+*/
+
+class ofxScheduleTime :public Poco::DateTime{
+public:
+	static ofxScheduleTimeType getScheduleTimeType(string type){
+		if(type == "absolute"){
+			return OFX_SCHEDULE_ABSOULTE;
+		}else if(type == "relative"){
+			return OFX_SCHEDULE_RELATIVE;
+		}else if(type == "repeat"){
+			return OFX_SCHEDULE_REPEAT;
+		}else if(type == "every"){
+			return OFX_SCHEDULE_EVERY;
+		}
+	}
+	
+	static string getScheduleTimeTypeString(ofxScheduleTimeType type){
+		if(type == OFX_SCHEDULE_ABSOULTE){
+			return "absolute";
+		}else if(type == OFX_SCHEDULE_RELATIVE){
+			return "relative";
+		}else if(type == OFX_SCHEDULE_REPEAT){
+			return "repeat";
+		}else if(type == OFX_SCHEDULE_EVERY){
+			return "every";
+		}
+	}
+	
+	static ofxScheduleTime now(){
+		return ofxScheduleTime(Poco::LocalDateTime());
+	}
+	
+	ofxScheduleTime withoutDate(){
+		ofxScheduleTime t(*this);
+		return ofxScheduleTime(Poco::DateTime(1970,1,1,hour(),minute(),second(),millisecond(),microsecond()));
+	}
+	
+	ofxScheduleTime(const Poco::DateTime & time):Poco::DateTime(time){
+	}
+	
+	ofxScheduleTime(const Poco::LocalDateTime & time):Poco::DateTime(time.timestamp()){
+	}
+	
+	ofxScheduleTime(long time=0, ofxScheduleTimeType newType=OFX_SCHEDULE_RELATIVE):Poco::DateTime(Poco::Timestamp::fromEpochTime(time)){
+	}
+	
+	ofxScheduleTime(int hour, int min, int sec, ofxScheduleTimeType newType=OFX_SCHEDULE_ABSOULTE):Poco::DateTime(0,1,1,hour,min,sec){
+		
+	}
+	
+	long getUnixTime(){
+		return timestamp().epochTime();
+	}
+	
+	ofxScheduleTimeType getType(){
+		return type;
+	}
+	int getHour(){
+		return hour();
+	}
+	int getMinute(){
+		return minute();
+	}
+	int getSecond(){
+		return second();
+	}
+	
+	void setHour(int h){
+		assign(year(), month(), day(), h, minute(), second(), millisecond(), microsecond());
+	}
+	void setMinute(int m){
+		assign(year(), month(), day(), hour(), m, second(), millisecond(), microsecond());
+	}
+	void setSec(int s){
+		assign(year(), month(), day(), hour(), minute(), s, millisecond(), microsecond());
+	}
+	
+	double operator / (Poco::DateTime& other){
+		long othert = other.timestamp().epochMicroseconds();
+		if(othert == 0) {
+			ofLogError("ofxScheduleTime") << "0 Division";
+			return;
+		}
+		return othert/getUnixTime();
+	}
+	
+	ofxScheduleTime operator * (float& factor){
+		return ofxScheduleTime(getUnixTime()*factor, type);
+	}
+
+private:
+	ofxScheduleTimeType type;
+};
+
 class ofxScheduleEvent {
 public:
 	ofxScheduleEvent():isOn(false),loop(1){}
@@ -276,7 +372,7 @@ public:
 	}
 	
 	ofxScheduleTime setEndTime(ofxScheduleTime time){
-		if(duration.getUnixTime()>0)loop = time/duration;
+		if(duration>0)loop = time/duration;
 		//else loop = 1;
 		return endTime = time;
 	}
@@ -358,6 +454,7 @@ public:
 	}
 	
 	void saveScehdule(string path){
+		validate();
 		XML.clear();
 		int num = XML.addTag("schedule");
 		XML.addAttribute("schedule", "generator", "openframeworks/ofxSchedule", num);
@@ -451,6 +548,48 @@ public:
 			XML.popTag();
 		}
 		XML.popTag();
+		validate();
+	}
+	
+	void validate(){
+		
+		//Remove duration = 0;
+		for(int i=0; i<events.size(); i++){
+			ofxScheduleEvent *e = events[i];
+			if(e->getDuration()->getUnixTime() == 0){
+				ofLogWarning("ofxSchedule") << "NO DURATION:REMOVING " << e->getType() << " < " << e->getMessage();
+				removeSchedule(e);
+			}
+		}
+		
+		//End All
+		for(int i=0; i<events.size(); i++){
+			ofxScheduleEvent *e = events[i];
+			if(e->getIsOn()){
+				ofLogVerbose("ofxSchedule")<< ofGetTimestampString() <<":ENDING	" << e->getType() << " < " << e->getMessage();
+				ofNotifyEvent(endEvent, *e, this);
+				e->setIsOn(false);
+			}
+		}
+		
+		time_t now = 0; //ofxScheduleTime::normalizeTime(time(NULL));
+		time_t begin = 0;//previousTime + liveEvents.front()->getBeginTime()->getUnixTime();
+		time_t end = 0;//begin + liveEvents.front()->getDuration()->getUnixTime();
+		
+		for(int i=0; i<events.size(); i++){
+			ofxScheduleEvent *e = events[i];
+			begin += e->getBeginTime()->getUnixTime();
+			end = begin+e->getDuration()->getUnixTime();
+			if(now >= begin){
+				if(!e->getIsOn() && now < end){
+					ofLogVerbose("ofxSchedule")<< ofGetTimestampString() <<":BEGINNING	" << e->getType() << " < " << e->getMessage();
+					
+					ofNotifyEvent(beginEvent, *e, this);
+					e->setIsOn(true);
+				}
+			}
+			begin = end;
+		}
 	}
 	
 	int numEvents(){
@@ -469,9 +608,11 @@ public:
 private:
 	void threadedFunction(){
 		while(isThreadRunning()){
-			time_t now =ofxScheduleTime::normalizeTime(time(NULL));
-			time_t begin = 0;//previousTime + liveEvents.front()->getBeginTime()->getUnixTime();
-			time_t end = 0;//begin + liveEvents.front()->getDuration()->getUnixTime();
+			
+			double now = (double)ofxScheduleTime::now().withoutDate().timestamp().epochMicroseconds()/Poco::Timestamp::resolution();
+			//time_t now =ofxScheduleTime::normalizeTime(time(NULL));
+			long begin = 0;//previousTime + liveEvents.front()->getBeginTime()->getUnixTime();
+			long end = 0;//begin + liveEvents.front()->getDuration()->getUnixTime();
 			
 			for(int i=0; i<events.size(); i++){
 				ofxScheduleEvent *e = events[i];
@@ -494,8 +635,8 @@ private:
 					e->setIsOn(false);
 				}
 				begin = end;
-				ofSleepMillis(1);
 			}
+			ofSleepMillis(1);
 		}
 	}
 	vector<ofxScheduleEvent*> events;

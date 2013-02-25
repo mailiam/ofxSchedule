@@ -11,6 +11,7 @@
 
 #define SCROLL_WIDTH 15
 #define SEC_ONE_DAY (24*60*60)
+#define MICRO_SEC_ONE_DAY SEC_ONE_DAY*Poco::Timestamp::resolution()
 #define TIME_LABEL_WIDTH 50
 
 #include "ofxUI.h"
@@ -399,7 +400,7 @@ public:
         {
             ofNoFill();
             ofSetColor(color_outline_highlight);
-			time_t now = ofxScheduleTime::normalizeTime(ofGetUnixTime());
+			long now = ofxScheduleTime::now().withoutDate().getUnixTime(); //ofxScheduleTime::normalizeTime(ofGetUnixTime());
 			float tWidth = 5;
 			float sy = listUI->getSRect()->y - rect->getY();
 			float x = rect->getX();
