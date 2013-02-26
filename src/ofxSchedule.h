@@ -473,7 +473,7 @@ public:
 		time_t end = 0;//begin + liveEvents.front()->getDuration()->getUnixTime();
 		
 		ofxScheduleEvent * event = NULL;
-		ofxScheduleEvent *e;
+		ofxScheduleEvent *e = NULL;
 		//end all
 		for (int i=0; i<events.size(); i++){
 			e = events[i];
@@ -491,7 +491,7 @@ public:
 		if(event){
 			ofLogVerbose("ofxSchedule")<< "VALIDATION" <<":BEGINNING	" << event->getType() << " < " << event->getMessage();
 			ofNotifyEvent(beginEvent, *event, this);
-		}else{
+		}else if(e){
 			ofLogVerbose("ofxSchedule")<< "VALIDATION" <<":ENDING	" << e->getType() << " < " << e->getMessage();
 			ofNotifyEvent(endEvent, *e, this);
 		}

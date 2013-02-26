@@ -467,6 +467,7 @@ public:
 	}
 	
 	void focusSelected(){
+		if(selectedAsset == NULL) return;
 		float y = selectedAsset->getRect()->y;
 		float time = y/secHeight;
 		float h = time/3600;
