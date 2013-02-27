@@ -326,6 +326,7 @@ public:
 	}
 	
 	void updateSchedule(bool select=true){
+		hidePanel();
 		listUI->removeWidgets();
 		float yy =0;
 		ofxUIMediaAsset * widget = NULL;
@@ -461,6 +462,19 @@ public:
 		if(!schedule->validate())
 			updateSchedule(false);
 	}
+	
+	virtual void keyPressed(int key)
+    {
+		if(key == OF_KEY_DEL || key == OF_KEY_BACKSPACE){
+			if(selectedAsset && selectedEvent){
+				schedule->removeSchedule(selectedEvent);
+				selectedEvent = NULL;
+				selectedAsset = NULL;
+				updateSchedule();
+			}
+		}
+		ofxUICanvas::keyPressed(key);
+    }
 	
 	ofxUIMediaAsset * getSelected(){
 		return selectedAsset;
