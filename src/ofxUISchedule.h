@@ -455,12 +455,17 @@ public:
 	
 	void mousePressed(int x, int y, int button){
 		ofxUICanvas::mousePressed(x,y,button);
+		if(rect->inside(x, y))
+			bPress = true;
+		else
+			bPress = false;
 	}
 	
 	void mouseReleased(int x, int y, int button){
 		ofxUICanvas::mouseReleased(x,y,button);
-		if(!schedule->validate())
-			updateSchedule(false);
+		if(bPress)
+			if(!schedule->validate())
+				updateSchedule(false);
 	}
 	
 	virtual void keyPressed(int key)
@@ -505,6 +510,7 @@ protected:
     ofxSchedule *schedule;
     bool useReference;
     bool drawLabel;
+	bool bPress;
 	
 	float secHeight;
 	
