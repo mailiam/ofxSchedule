@@ -498,6 +498,10 @@ public:
 		refreshView();
 	}
 	
+	ofxUIRangeSlider *getScrollbar(){
+		return scrollbar;
+	}
+	
 	bool isDraggable()
     {
         return true;
